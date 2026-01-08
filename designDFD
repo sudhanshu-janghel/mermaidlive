@@ -1,0 +1,60 @@
+flowchart LR
+    %% Define Styles
+    classDef cloud fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef vendor fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    classDef component fill:#ffffff,stroke:#333,stroke-width:1px;
+    classDef secure fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef k8s fill:#326ce5,stroke:#fff,stroke-width:1px,color:#fff;
+    classDef snowflake fill:#29b6f6,stroke:#0277bd,stroke-width:1px,color:#fff;
+    classDef viz fill:#ffb74d,stroke:#f57c00,stroke-width:2px;
+
+    subgraph Azure_Backbone [Microsoft Azure Backbone Network]
+        direction LR
+        PL_Connection[("Azure PrivateLink<br/>(Global Peer/Tunnel)")]:::secure
+    end
+
+    subgraph Customer_Env [Customer Azure Tenant]
+        style Customer_Env fill:#e3f2fd,stroke:#1565c0
+        
+        subgraph Snowflake_Side [Snowflake Environment]
+            direction TB
+            SF_Service[("Snowflake Data Warehouse<br/>(SSCD Core Data)")]:::snowflake
+        end
+
+        subgraph Network_Infra [Azure Network Services]
+            direction TB
+            PL_Service["Azure Private Link Service<br/>(Internal Load Balancer)"]:::component
+            DNS_C["Private DNS Zone<br/>(privatelink.snowflakecomputing.com)"]:::component
+        end
+        
+        SF_Service <--> PL_Service
+        DNS_C -. "Resolves FQDN to PLS IP" .-> PL_Service
+    end
+
+    subgraph Vendor_Env [Sigma Computing Azure Tenant]
+        style Vendor_Env fill:#f3e5f5,stroke:#7b1fa2
+        
+        subgraph Sigma_K8s [Sigma Kubernetes Clusters]
+            direction TB
+            Sigma_App["Sigma SaaS Pods"]:::k8s
+            K8s_SVC["K8s Service / CoreDNS"]:::component
+            Dashboards["User Dashboards &<br/>Visualizations"]:::viz
+        end
+
+        PE["Azure Private Endpoint<br/>(NIC-based Connection)"]:::component
+        
+        Sigma_App --"1. Read-Only Query"--> K8s_SVC
+        K8s_SVC --"2. Direct Route to Interface"--> PE
+        Sigma_App -. "8. Feeds Processed Data" .-> Dashboards
+    end
+
+    %% Connections across the backbone
+    PE == "3. Private Link Handshake" ==> PL_Connection
+    PL_Connection == "4. Encapsulated Traffic" ==> PL_Service
+
+    %% Data Return Path
+    PL_Service -. "5. Result Set (Data Payload)" .-> PL_Connection
+    PL_Connection -. "6. Secure Data Return" .-> PE
+    PE -. "7. Query Results to App" .-> Sigma_App
+
+    linkStyle 4,5,6 stroke:#1b5e20,stroke-width:2px,color:green;
