@@ -1,0 +1,23 @@
+flowchart LR
+ subgraph SIGMA["Sigma Computing (SaaS)"]
+        SI_API["Sigma API / Writeback Engine"]
+  end
+ subgraph AZURE_PL["Azure Private Link"]
+        SF_PE["Snowflake Private Link Endpoint"]
+  end
+ subgraph CUSTOMER_VNET["Customer VNet"]
+        AZURE_PL
+  end
+ subgraph SNOWFLAKE["Snowflake on Azure"]
+        SF_ENDPOINT["Snowflake Service Endpoint"]
+        COMPUTE["Virtual Warehouse"]
+        WB_SCHEMA[("Writeback Schema / Client Tables")]
+  end
+ subgraph CLIENT["Client Environment"]
+        CUSTOMER_VNET
+        SNOWFLAKE
+  end
+    SF_ENDPOINT --> COMPUTE
+    COMPUTE --> WB_SCHEMA
+    SI_API -- Private Link --> SF_PE
+    SF_PE --> SF_ENDPOINT
